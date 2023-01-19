@@ -54,10 +54,14 @@ class OmnivoxScraper(QtWidgets.QWidget):
         self.grid.addWidget(self.la_note_URL, 5, 0, 1 ,2)
 
     def start(self):
-        #self.btn_start.setVisible(False)
-        print("f")
-        t.sleep(3)
-        #self.btn_start.setVisible(True)
+        self.prg_dialog = QtWidgets.QProgressDialog("Création de l'horaire...", "Annuler", 0, 100, self)
+        self.prg_dialog.exec_()
+        da = self.le_DA.text()
+        mdp = self.le_MDP.text()
+        url = self.le_URL.text()
+        couleur = self.cb_couleur.currentText()
+        dic_info = {"DA": da, "MDP": mdp, "URL": url, "Couleur": couleur}
+        # le dict info sert pour les para du scraper scraper
 
 app = QtWidgets.QApplication([])
 fenetre = OmnivoxScraper()
