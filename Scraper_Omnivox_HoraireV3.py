@@ -160,4 +160,4 @@ def scraper():
         
     return t_info
 
-#pprint(scraper())
+pprint(scraper())
