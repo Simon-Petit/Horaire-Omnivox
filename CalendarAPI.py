@@ -9,38 +9,10 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from Scraper_Omnivox_HoraireV3 import scraper
-
-info = scraper()
-
-def colorprofile():
-    colorprofileID = int(input("Quelle couleurs voulez-vous que les évènements aillent?"))
-    if colorprofileID == 1:
-        for cle in info.keys():
-            if info[cle]["local"][:1] == "A":
-                info[cle]["couleur"] = "5"
-            elif info[cle]["local"][:1] == "B":
-                info[cle]["couleur"] = "8"
-            elif info[cle]["local"][:1] == "D":
-                info[cle]["couleur"] = "3"
-            elif info[cle]["local"][:1] == "E":
-                info[cle]["couleur"] = "6"
-            elif info[cle]["local"][:1] == "F":
-                info[cle]["couleur"] = "7"
-            elif info[cle]["local"][:1] == "G":
-                info[cle]["couleur"] = "9"
-            elif info[cle]["local"][:1] == "H":
-                info[cle]["couleur"] = "2"
-            elif info[cle]["local"][:1] == "J":
-                info[cle]["couleur"] = "4"
-            else:
-                info[cle]["couleur"] = "8"
-    elif colorprofileID == 2:
-        for cle in info.keys():
-           info[cle]["couleur"] = "8"
+from datetime import datetime
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/calendar',"https://www.googleapis.com/auth/calendar.events","https://www.googleapis.com/auth/calendar.events.readonly"]
-
 
 creds = None
 # The file token.json stores the user's access and refresh tokens, and is
@@ -61,152 +33,177 @@ if not creds or not creds.valid:
         token.write(creds.to_json())
 service = build('calendar', 'v3', credentials=creds)
 # Call the Calendar API
-now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
+now = datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
 
 
 def create_calendar():
     try:
-        calendar_list_summary = []
+        horaire_cegep_id = None
         page_token = None
         while True: 
             calendar_list = service.calendarList().list(pageToken=page_token).execute()
             for calendar_list_entry in calendar_list['items']:
-                calendar_list_summary.append(calendar_list_entry['summary'])
-                calendar_list_summary.append(calendar_list_entry['id'])
-            if 'Horaire Cégep' not in calendar_list_summary:
+                if calendar_list_entry['summary'] == "Horaire Cégep":
+                    horaire_cegep_id = calendar_list_entry['id']
+                    break
+            if horaire_cegep_id:
+                break
+            if 'nextPageToken' in calendar_list:
+                page_token = calendar_list['nextPageToken']
+            else:
                 calendar_request_body = {
                     "summary": "Horaire Cégep",
-                    "description": "L'horaire de vos cours est précis pour les 10 prochains jours.",
-                    "timeZone": "America/Montreal",
-                    "colorId": "6" 
+                    "timeZone": "America/Montreal"
                 }
-                Calendrier = service.calendars().insert(body=calendar_request_body).execute()
-                return Calendrier['id']
-            else:
-                return calendar_list_summary[3]            
-            if not page_token:
+                created_calendar = service.calendars().insert(body=calendar_request_body).execute()
+                horaire_cegep_id = created_calendar['id']
                 break
     except HttpError as error:
-        print('An error occurred: %s' % error)  
+        print(f'An error occurred: {error}')
+    return horaire_cegep_id
 
-def get_event_by_date(date):
-    try:
-        page_token = None
-        while True:
-            events = service.events().list(calendarId= create_calendar(), pageToken=page_token).execute()
-            for event in events['items']:
-                if event.get('start').get('dateTime') == date:
-                    return (event['summary'])
-            page_token = events.get('nextPageToken')
-            if not page_token:
-                break
-    except HttpError as error:
-        print('An error occurred: %s' % error)
-
-def get_event_end(summary, date_début):
-    try:
-        page_token = None
-        while True:
-            events = service.events().list(calendarId= create_calendar(), pageToken=page_token).execute()
-            for event in events['items']:
-                if event.get('summary') == summary and event.get('start').get('dateTime') == date_début:
-                    return (event['end'].get('dateTime'))
-            page_token = events.get('nextPageToken')
-            if not page_token:
-                break
-    except HttpError as error:
-        print('An error occurred: %s' % error)
-
+calendar_id = create_calendar()
 
 def delete_all_events(date_début, date_fin):
     try:
-        page_token = None
-        while True:
-            events = service.events().list(calendarId= create_calendar(), pageToken=page_token).execute()
-            for event in events['items']:
-                if event.get('start').get('dateTime') >= date_début and event.get('end').get('dateTime') <= date_fin:
-                    service.events().delete(calendarId= create_calendar(), eventId=event['id']).execute()
-            page_token = events.get('nextPageToken')
-            if not page_token:
-                break
+        events_result = service.events().list(calendarId=calendar_id, timeMin=date_début, timeMax=date_fin, singleEvents=True, orderBy='startTime').execute()
+        events = events_result.get('items', [])
+        if not events:
+            print('No upcoming events found.')
+        for event in events:
+            service.events().delete(calendarId=calendar_id, eventId=event['id']).execute()
     except HttpError as error:
-        print('An error occurred: %s' % error)
-        
+        print(f'An error occurred: {error}')
+
+events_list = scraper()
+
+# create a dictionary to store the events grouped by day of the week
+events_by_day = {}
+
+# create a dictionary to store the events that will be added to the Google Calendar
+calendar_events = {}
+
+# iterate through each event in the events_list
+for event_id, event in events_list.items():
+    # convert the start and end times to datetime objects
+    start_time = datetime.strptime(event['date_time_debut'].split("T")[1], '%H:%M:%S-05:00')
+    end_time = datetime.strptime(event['date_time_fin'].split("T")[1], '%H:%M:%S-05:00')
+    # get the day of the week from the start time
+    day_of_week = datetime.strptime(event['date_time_debut'], '%Y-%m-%dT%H:%M:%S-05:00').strftime('%A')
+    # if the day of the week already exists in the events_by_day dict
+    if day_of_week in events_by_day:
+        # flag to check if event already exists
+        event_exists = False
+        # iterate through each event in the current day
+        for existing_event in events_by_day[day_of_week]:
+            if event['titre'] == existing_event['titre'] and event['type_cours'] == existing_event['type_cours'] and event['local'] == existing_event['local'] and datetime.strptime(event['date_time_debut'].split("T")[1], '%H:%M:%S-05:00') == datetime.strptime(existing_event['date_time_debut'].split("T")[1], '%H:%M:%S-05:00') and datetime.strptime(event['date_time_fin'].split("T")[1], '%H:%M:%S-05:00') == datetime.strptime(existing_event['date_time_fin'].split("T")[1], '%H:%M:%S-05:00'):
+                event_exists = True
+            # check if the event already exists in the calendar_events dict
+                if event['titre'] in calendar_events:
+                    # check if the event has the same start and end time as the existing event in the calendar_events dict
+                    if start_time == calendar_events[event['titre']]['start_time'] and end_time == calendar_events[event['titre']]['end_time']:
+                        # the event already exists, do not add it to the calendar_events dict
+                        break
+                    else:
+                        # the event has the same title but different start and end time, check other days in the other week
+                        for day in events_by_day:
+                            for existing_event in events_by_day[day]:
+                                if event['titre'] == existing_event['titre'] and event['type_cours'] == existing_event['type_cours'] and event['local'] == existing_event['local']:
+                                    start_time_existing = datetime.strptime(existing_event['date_time_debut'].split("T")[1], '%H:%M:%S-05:00')
+                                    end_time_existing = datetime.strptime(existing_event['date_time_fin'].split("T")[1], '%H:%M:%S-05:00')
+                                    if start_time == start_time_existing and end_time == end_time_existing:
+                                        # the event already exists, do not add it to the calendar_events dict
+                                        break
+                                    else:
+                                        # the event does not exist in the calendar_events dict, add it
+                                        calendar_events[event['titre']] = {'start_time': start_time, 'end_time': end_time}
+                else:
+                    # the event does not exist in the calendar_events dict, add it
+                    calendar_events[event['titre']] = {'start_time': start_time, 'end_time': end_time}
+        if not event_exists:
+            # if the event does not already exist in the current day, add it to the events_by_day dict
+            events_by_day[day_of_week].append(event)
+    else:
+        # if the day of the week does not already exist in the events_by_day dict, add it
+        events_by_day[day_of_week] = [event]
+
+
+colorprofileID = int(input("Quelle couleurs voulez-vous que les évènements aillent?"))
+if colorprofileID == 1:
+    for cle in events_by_day:
+        for event in events_by_day[cle]:
+            if event['local'][:1] == "A":
+                event["couleur"] = "5"
+            elif event['local'][:1] == "B":
+                event["couleur"] = "8"
+            elif event['local'][:1] == "D":
+                event["couleur"] = "3"
+            elif event['local'][:1] == "E":
+                event["couleur"] = "6"
+            elif event['local'][:1] == "F":
+                event["couleur"] = "7"
+            elif event['local'][:1] == "G":
+                event["couleur"] = "9"
+            elif event['local'][:1] == "H":
+                event["couleur"] = "2"
+            elif event['local'][:1] == "J":
+                event["couleur"] = "4"
+            else:
+                event["couleur"] = "8"
+elif colorprofileID == 2:
+    for cle in events_by_day:
+        for event in events_by_day[cle]:
+            event["couleur"] = "8"
+            
 FinHoraire = input("Entrez la date de fin de l'horaire (AAAAMMJJ):")
-def CreateEvent():
-    for cle in info.keys():
-        event = {
-        'summary': info[cle]["titre"],
-        'location': info[cle]["local"],
-        'description': info[cle]["type_cours"],
-        "colorId": info[cle]["couleur"],
-        'start': {
-        'dateTime': info[cle]["date_time_debut"],
-        'timeZone': 'America/Montreal',
-        },
-        'end': {
-        'dateTime': info[cle]["date_time_fin"],
-        'timeZone': 'America/Montreal',
-        },
-        }
-        
-        if get_event_by_date(info[cle]["date_time_debut"]) != info[cle]["titre"] or get_event_end(info[cle]["titre"], info[cle]["date_time_debut"]) != info[cle]["date_time_fin"]:
-            event = service.events().insert(calendarId= create_calendar(), body=event).execute()
-            print('Event created: %s' % (event.get('htmlLink')))
 
-def CreateHoraireExam():
-    for cle in info.keys():
-        event = {
-        'summary': info[cle]["titre"],
-        'location': info[cle]["local"],
-        'description': info[cle]["type_cours"],
-        "colorId": info[cle]["couleur"],
-        'start': {
-        'dateTime': info[cle]["date_time_debut"],
-        'timeZone': 'America/Montreal',
-        },
-        'end': {
-        'dateTime': info[cle]["date_time_fin"],
-        'timeZone': 'America/Montreal',
-        },
-        }
+for cle in events_by_day:
+    for event in events_by_day[cle]:        
+        event_request_body = {
+                "summary": event["titre"],
+                "location": event["local"],
+                'description': event["type_cours"],
+                "start": {
+                    "dateTime": event["date_time_debut"],
+                    "timeZone": "America/Montreal",
+                },
+                "end": {
+                    "dateTime": event["date_time_fin"],
+                    "timeZone": "America/Montreal",
+                },
+                "recurrence": [
+                    "RRULE:FREQ=WEEKLY;UNTIL={}".format(FinHoraire),
+                ],
+                "colorId": event["couleur"],
+            }
+            # Create the event
+        service.events().insert(calendarId=calendar_id, body=event_request_body).execute()
         
-        if int(info[cle]["date_time_debut"][:10].replace("-","")) > int(FinHoraire) and get_event_by_date(info[cle]["date_time_debut"]) != info[cle]["titre"]:
-            event = service.events().insert(calendarId= create_calendar(), body=event).execute()
-            print('Event created: %s' % (event.get('htmlLink')))
-
-def CreateHorairecomplet():
-    for cle in info.keys():
-        event = {
-        'summary': info[cle]["titre"],
-        'location': info[cle]["local"],
-        'description': info[cle]["type_cours"],
-        "colorId": info[cle]["couleur"],
-        'start': {
-        'dateTime': info[cle]["date_time_debut"],
-        'timeZone': 'America/Montreal',
-        },
-        'end': {
-        'dateTime': info[cle]["date_time_fin"],
-        'timeZone': 'America/Montreal',
-        },
-        "recurrence": [
-            "RRULE:FREQ=WEEKLY;UNTIL=%s" % FinHoraire,
-            "EXDATE:%s; COUNT=2" % str(info[cle]["date_time_debut"][:10].replace("-",""))
-            ],
+date_début_relache = datetime.strptime(input("Entrez la date de début de la relâche (AAAAMMJJ):"), "%Y%m%d").isoformat() + "Z"
+date_fin_relache = datetime.strptime(input("Entrez la date de fin de la relâche (AAAAMMJJ):"), "%Y%m%d").isoformat() + "Z"
+""""
+JourFerie = []
+for i in range(0, int(input("Combien de jours fériés voulez-vous?"))):
+    JourFerie.append(input("Veuillez entrer le jour férié (AAAAMMJJ):"))
+for day in JourFerie:
+    delete_all_events_of_a_specific_day(day)
+"""
+delete_all_events(date_début_relache, date_fin_relache)
+delete_all_events("20230407", "20230411")
+for event in events_by_day["Friday"]:        
+    event_request_body = {
+            "summary": event["titre"],
+            "location": event["local"],
+            'description': event["type_cours"],
+            "start": {
+                "dateTime": str(datetime.strptime(event['date_time_debut'], "%Y-%m-%dT%H:%M:%S-05:00").replace(day=11).replace(month=4).strftime("%Y-%m-%dT%H:%M:%S-05:00")),
+                "timeZone": "America/Montreal",
+            },
+            "end": {
+                "dateTime": str(datetime.strptime(event["date_time_fin"], "%Y-%m-%dT%H:%M:%S-05:00").replace(day=11).replace(month=4).strftime("%Y-%m-%dT%H:%M:%S-05:00")),
+                "timeZone": "America/Montreal",
+            },
+            "colorId": event["couleur"],
         }
-        
-        if get_event_by_date(info[cle]["date_time_debut"]) != info[cle]["titre"] or get_event_end(info[cle]["titre"], info[cle]["date_time_debut"]) != info[cle]["date_time_fin"]:
-            event = service.events().insert(calendarId= create_calendar(), body=event).execute()
-            print('Event created: %s' % (event.get('htmlLink')))
-
-if __name__ == '__main__':
-    
-    create_calendar()
-    colorprofile()
-    CreateEvent()
-    CreateHorairecomplet()
-    CreateHoraireExam()
-    date_début_relache = input("Entrez la date de début de la relâche (AAAA-MM-JJ):")
-    date_fin_relache = input("Entrez la date de fin de la relâche (AAAA-MM-JJ):")
-    delete_all_events(date_début_relache, date_fin_relache)
+        # Create the event
+    service.events().insert(calendarId=calendar_id, body=event_request_body).execute()
