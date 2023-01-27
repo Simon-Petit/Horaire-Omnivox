@@ -48,12 +48,12 @@ def scraper():
         s.post(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/Webpart_Affichage_Selector.ashx", headers=headers, data=isModeVueParJour)
 
         # Requete pour s'assurer que les seuls type d'evenement charger son les cours et les examens (desactive Lea, Communaute, Calendrier scolaire et Rendez-Vous).
-        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=CalScolaire&filtre-etat=O",headers=headers)
+        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=CalScolaire&filtre-etat=N",headers=headers)
         s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=Lea&filtre-etat=N",headers=headers)
         s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=Communaute&filtre-etat=N", headers=headers)
-        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=RendezVous&filtre-etat=N", headers=headers)
-        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=Examen&filtre-etat=O", headers=headers)
-        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=Cours&filtre-etat=O", headers=headers)
+        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=RendezVous&filtre-etat=O", headers=headers)
+        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=Examen&filtre-etat=N", headers=headers)
+        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=Cours&filtre-etat=N", headers=headers)
 
         # Requete pour recuperer les premiers evenements et les tranformer en str. 
         r2 = s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebService/EvenementsWebService.asmx/GetFirstLoad?isMobile=false",headers=headers)
@@ -63,6 +63,10 @@ def scraper():
     # Creation d'une liste avec chaque evenement comme valeur.
     liste_evenement = text.split("carte-portail carte-evenement")
     t_info = {}
+    
+    liste_semaine_conger = []
+    liste_ferie = []
+    autre_info = {"Semaine de relache" : liste_semaine_conger, "Ferie" : liste_ferie}
     counter  = 0
 
     # Boucle pour .pour éviter de faire trop de requetes a omnivox.
@@ -84,13 +88,6 @@ def scraper():
             id = "".join(id)
             id = id.replace("data-idunifie='","")
             info["id"] = id
-            
-            # Recherche le nom du cours
-            titre = re.findall(r"\bdata\-titre\b={1}\\{1}\"{1}[a-zA-Z0-9, &#;:.]+",element)
-            titre = "".join(titre)
-            titre = titre.replace("data-titre=\\\"","")
-            titre = unescape(titre)
-            info["titre"] = titre
 
             # Recherche l'heures de debut et fin du cours
             heure = re.findall(r"\bdata\-heure\b={1}\\{1}\"{1}[a-zA-Z0-9, &#;:]+",element)
@@ -126,9 +123,31 @@ def scraper():
             date = date.replace("data-date=\\\"","")
             date = unescape(date)
             info["date"] = date
+
+            # Recherche le nom du cours
+            titre = re.findall(r"\bdata\-titre\b={1}\\{1}\"{1}[a-zA-Z0-9, &#;:.]+",element)
+            titre = "".join(titre)
+            titre = titre.replace("data-titre=\\\"","")
+            titre = unescape(titre)
+            info["titre"] = titre
+
+            if titre == "Journée de lecture" or titre == "Journal d'évaluation et récupération":
+                liste_semaine_conger.append(date)
+                continue
+            elif titre == "Jounée fériée": 
+                liste_ferie.append(date)
+                continue
+            elif titre == "Fin de session":
+                autre_info["Fin de session"] = date
+                continue
+            elif False:
+                pass
+
+
+
             
             counter += 1
-            print(counter)
+            #print(counter)
 
             # Ajout des information du cours au dictionnaire contenant tous les cours 
             t_info[str(counter)] = info
@@ -149,7 +168,7 @@ def scraper():
 
     pprint(t_info)
     Mois={'janvier':1,'février':2,'mars':3,'avril':4,'mai':5,'juin':6,'juillet':7,'août':8,'septembre':9,'octobre':10,'novembre':11,'décembre':12}
-    for cle in t_info.keys():
+    for cle in t_info[0].keys():
         liste_date = t_info[cle]["date"].split()
         liste_heure = t_info[cle]["heure"].split()
         if len(liste_date[1]) == 1:
