@@ -6,6 +6,7 @@ def scraper():
     from bs4 import BeautifulSoup as bs
     import re
     from html import unescape
+    from base64 import b64decode
 
     # Creation d'un dictionnaire avec user-agent puisque omnivox ne donne pas l'acces au site sans cela.
     headers = {"user-agent" : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36"}
@@ -87,6 +88,7 @@ def scraper():
             # Fomatage du str id pour enlever les éléments inutile (l'id est une suite d'information encrypter en base 64)
             id = "".join(id)
             id = id.replace("data-idunifie='","")
+            decoded_id = b64decode(id)
             info["id"] = id
 
             # Recherche l'heures de debut et fin du cours
