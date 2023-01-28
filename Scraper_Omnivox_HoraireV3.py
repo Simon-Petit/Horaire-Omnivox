@@ -49,12 +49,12 @@ def scraper():
         s.post(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/Webpart_Affichage_Selector.ashx", headers=headers, data=isModeVueParJour)
 
         # Requete pour s'assurer que les seuls type d'evenement charger son les cours et les examens (desactive Lea, Communaute, Calendrier scolaire et Rendez-Vous).
-        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=CalScolaire&filtre-etat=N",headers=headers)
+        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=CalScolaire&filtre-etat=O",headers=headers)
         s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=Lea&filtre-etat=N",headers=headers)
         s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=Communaute&filtre-etat=N", headers=headers)
         s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=RendezVous&filtre-etat=O", headers=headers)
-        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=Examen&filtre-etat=N", headers=headers)
-        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=Cours&filtre-etat=N", headers=headers)
+        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=Examen&filtre-etat=O", headers=headers)
+        s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebPart_Affichage3.ashx?filtre-categorie=Cours&filtre-etat=O", headers=headers)
 
         # Requete pour recuperer les premiers evenements et les tranformer en str. 
         r2 = s.get(f"https://{nom_url_cegep}.omnivox.ca/intr/UI/WebParts/Intraflex_CalendrierScolaire/WebService/EvenementsWebService.asmx/GetFirstLoad?isMobile=false",headers=headers)
@@ -64,7 +64,6 @@ def scraper():
     # Creation d'une liste avec chaque evenement comme valeur.
     liste_evenement = text.split("carte-portail carte-evenement")
     t_info = {}
-    
     liste_semaine_conger = []
     liste_ferie = []
     autre_info = {"Semaine de relache" : liste_semaine_conger, "Ferie" : liste_ferie}
@@ -83,13 +82,26 @@ def scraper():
             # Permet de retirer les elements de la liste qui ne sont pas des evenements (puisque qu'il n'ont pas d'id)
             if id == []:
                 continue
-            else:
-                print(id)
+
             # Fomatage du str id pour enlever les éléments inutile (l'id est une suite d'information encrypter en base 64)
             id = "".join(id)
             id = id.replace("data-idunifie='","")
             decoded_id = b64decode(id)
             info["id"] = id
+
+            # Recherche la date du cours
+            date = re.findall(r"\bdata\-date\b={1}\\{1}\"{1}[a-zA-Z0-9 &#;]+",element)
+            date = "".join(date)
+            date = date.replace("data-date=\\\"","")
+            date = unescape(date)
+            info["date"] = date
+
+            # Recherche le nom du cours
+            titre = re.findall(r"\bdata\-titre\b={1}\\{1}\"{1}[a-zA-Z0-9, &#;:.]+",element)
+            titre = "".join(titre)
+            titre = titre.replace("data-titre=\\\"","")
+            titre = unescape(titre)
+            info["titre"] = titre
 
             # Recherche l'heures de debut et fin du cours
             heure = re.findall(r"\bdata\-heure\b={1}\\{1}\"{1}[a-zA-Z0-9, &#;:]+",element)
@@ -118,13 +130,6 @@ def scraper():
             for i in ["\\","n","t","r"]:
                 local = local.replace(i,"")
             info["local"] = local
-            
-            # Recherche la date du cours
-            date = re.findall(r"\bdata\-date\b={1}\\{1}\"{1}[a-zA-Z0-9 &#;]+",element)
-            date = "".join(date)
-            date = date.replace("data-date=\\\"","")
-            date = unescape(date)
-            info["date"] = date
 
             # Recherche le nom du cours
             titre = re.findall(r"\bdata\-titre\b={1}\\{1}\"{1}[a-zA-Z0-9, &#;:.]+",element)
