@@ -96,18 +96,18 @@ def scraper():
             info["date"] = date
 
             # Recherche le nom du cours
-            titre = re.findall(r"\bdata\-titre\b={1}\\{1}\"{1}[a-zA-Z0-9, &#;:.]+",element)
-            titre = "".join(titre)
-            titre = titre.replace("data-titre=\\\"","")
-            titre = unescape(titre)
-            info["titre"] = titre
+            titre = re.findall(r"\bdata\-titre\b={1}\\{1}\"{1}[a-zA-Z0-9, &#;:.]+",element) # Trouve le titre du cours
+            titre = "".join(titre) #j
+            titre = titre.replace("data-titre=\\\"","") #
+            titre = unescape(titre) #
+            info["titre"] = titre #
 
             # Recherche l'heures de debut et fin du cours
-            heure = re.findall(r"\bdata\-heure\b={1}\\{1}\"{1}[a-zA-Z0-9, &#;:]+",element)
-            heure = "".join(heure)
-            heure = heure.replace("data-heure=\\\"","")
-            heure = unescape(heure)
-            info["heure"] = heure
+            heure = re.findall(r"\bdata\-heure\b={1}\\{1}\"{1}[a-zA-Z0-9, &#;:]+",element)  # Trouve l'heure du cours
+            heure = "".join(heure) #
+            heure = heure.replace("data-heure=\\\"","") #
+            heure = unescape(heure) #
+            info["heure"] = heure #
             
             # Decodage de l'id pour classer les evenements par type
             decoded_id = b64decode(id)
@@ -135,11 +135,11 @@ def scraper():
             info["local"] = local
 
             # Recherche le nom du cours
-            titre = re.findall(r"\bdata\-titre\b={1}\\{1}\"{1}[a-zA-Z0-9, &#;:.]+",element)
-            titre = "".join(titre)
-            titre = titre.replace("data-titre=\\\"","")
-            titre = unescape(titre)
-            info["titre"] = titre
+            titre = re.findall(r"\bdata\-titre\b={1}\\{1}\"{1}[a-zA-Z0-9, &#;:.]+",element) # Trouve le titre du cours
+            titre = "".join(titre)  #j
+            titre = titre.replace("data-titre=\\\"","") #
+            titre = unescape(titre) #
+            info["titre"] = titre #
 
             if titre == "Journée de lecture" or titre == "Journal d'évaluation et récupération":
                 liste_semaine_conger.append(date)
