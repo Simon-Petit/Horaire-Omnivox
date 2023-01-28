@@ -86,7 +86,6 @@ def scraper():
             # Fomatage du str id pour enlever les éléments inutile (l'id est une suite d'information encrypter en base 64)
             id = "".join(id)
             id = id.replace("data-idunifie='","")
-            decoded_id = b64decode(id)
             info["id"] = id
 
             # Recherche la date du cours
@@ -110,6 +109,10 @@ def scraper():
             heure = unescape(heure)
             info["heure"] = heure
             
+            # Decodage de l'id pour classer les evenements par type
+            decoded_id = b64decode(id)
+
+
             # Recherche le type du cours (T = Theorie, L = Laboratoire, A = Activite)
             type_cours = re.findall(r"\bCOURS  \- \b[TLA]|EXAMEN",element)
             type_cours = "".join(type_cours)
