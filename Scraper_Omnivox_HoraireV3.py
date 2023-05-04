@@ -16,10 +16,8 @@ def scraper():
 
     #NoDA = input("Entrer votre numéro de DA : ")
     #PasswordEtu = input("Entrer votre mot de passe : ")
-    NoDA = "2269161"
-    PasswordEtu = "optimus31"
-
-    print("oui")
+    NoDA = ""
+    PasswordEtu = ""
 
     # Creation d'un dictionnaire avec le parametre isModeVueParJour a true pour s'assurer que le scraper va bien marcher .
     isModeVueParJour = {"isModeVueParJour":"true"}
